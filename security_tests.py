@@ -6,10 +6,14 @@ import os
 import re
 
 
+import pathlib
+
+REPO_ROOT = pathlib.Path(__file__).resolve().parent
+
 def test_media_permissions():
     """Test de validation des permissions média"""
     print("Test: Permissions média")
-    with open('/workspaces/gemini-desktop-mac/WebKit/GeminiWebView.swift', 'r') as f:
+    with open(REPO_ROOT / 'WebKit' / 'GeminiWebView.swift', 'r') as f:
         content = f.read()
 
     # Chercher la validation exacte d'hôtes
@@ -28,7 +32,7 @@ def test_media_permissions():
 def test_download_validation():
     """Test de validation des téléchargements"""
     print("Test: Validation des téléchargements")
-    with open('/workspaces/gemini-desktop-mac/WebKit/GeminiWebView.swift', 'r') as f:
+    with open(REPO_ROOT / 'WebKit' / 'GeminiWebView.swift', 'r') as f:
         content = f.read()
 
     # Vérifier la validation des extensions
@@ -43,7 +47,7 @@ def test_download_validation():
 def test_quarantine_attribute():
     """Test du quarantine attribute sur les téléchargements"""
     print("Test: Quarantine attribute sur les téléchargements")
-    with open('/workspaces/gemini-desktop-mac/WebKit/GeminiWebView.swift', 'r') as f:
+    with open(REPO_ROOT / 'WebKit' / 'GeminiWebView.swift', 'r') as f:
         content = f.read()
 
     if 'com.apple.quarantine' in content and 'downloadDidFinish' in content:
@@ -57,7 +61,7 @@ def test_quarantine_attribute():
 def test_https_enforcement():
     """Test de l'application de HTTPS"""
     print("Test: Application de HTTPS")
-    with open('/workspaces/gemini-desktop-mac/WebKit/WebViewModel.swift', 'r') as f:
+    with open(REPO_ROOT / 'WebKit' / 'WebViewModel.swift', 'r') as f:
         content = f.read()
 
     if 'allowsInsecureMediaLoad = false' in content and 'allowsInsecureScripting = false' in content:
@@ -71,7 +75,7 @@ def test_https_enforcement():
 def test_domain_whitelist():
     """Test de la liste blanche de domaines"""
     print("Test: Liste blanche restrictive de domaines")
-    with open('/workspaces/gemini-desktop-mac/WebKit/GeminiWebView.swift', 'r') as f:
+    with open(REPO_ROOT / 'WebKit' / 'GeminiWebView.swift', 'r') as f:
         content = f.read()
 
     # Chercher la liste exhaustive de domaines au lieu de suffixes
