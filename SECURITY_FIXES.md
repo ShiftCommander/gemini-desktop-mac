@@ -1,92 +1,43 @@
-# Résumé des corrections de sécurité - Gemini Desktop
+# Gemini Desktop Security Fixes Summary
 
-## Corrections implémentées
+## Implemented fixes
 
-### 1. **Validation exacte des permissions média** ✓
+### 1. Exact host matching for media permission checks
+- Fixed `requestMediaCapturePermissionFor` host validation `contains` bug.
+- Now grants only to `gemini.google.com` and `accounts.google.com`.
 
-**Risque corrigé**: Utilisation de `.contains()` pour valider les hôtes permettait l'accès à des domaines comme `evil.google.com` ou `google.com.attacker.com`
+### 2. Download extension allowlist
+- Added allowed extension check: `pdf, txt, csv, jpg, jpeg, png, gif, doc, docx, xls, xlsx, json`.
+- Rejects unknown or empty file extensions with `completionHandler(nil)`.
 
-**Changement**:
+### 3. Quarantine xattr for downloads
+- Sets `com.apple.quarantine` via `setxattr` (system API) in `downloadDidFinish`.
+- Keeps the warning for macOS "downloaded from internet" behavior.
 
-- Avant: `origin.host.contains(GeminiWebView.Constants.trustedHost)`
-- Après: Vérification exacte de hôtes spécifiques (`gemini.google.com`, `accounts.google.com`)
+### 4. HTTPS enforcement
+- In `WebViewModel.createWebView`, set:
+  - `allowsInsecureMediaLoad = false`
+  - `allowsInsecureScripting = false`
+- Prevents loading insecure resources.
 
-**Code**:
+### 5. Strict internal URL whitelist
+- Replaced suffix-based checks (`.googleapis.com`, `.gstatic.com`) with explicit allowlist:
+  - `gemini.google.com`, `www.gemini.google.com`, `accounts.google.com`, `auth.google.com`, `fonts.googleapis.com`, `fonts.gstatic.com`, `google.com`, `www.google.com`.
 
-```swift
-let allowedHosts = ["gemini.google.com", "accounts.google.com"]
-let isAllowed = allowedHosts.contains(origin.host ?? "")
-decisionHandler(isAllowed ? .grant : .prompt)
+### 6. Debug-only console bridge
+- `WebViewModel` registers console log handler only under `#if DEBUG`.
+
+## Tests
+- `security_tests.py` is now path-independent using `REPO_ROOT = pathlib.Path(__file__).resolve().parent`.
+- 6 checks all passing:
+  - Media permissions
+  - Download validation
+  - Quarantine attribute
+  - HTTPS enforcement
+  - Domain whitelist
+  - console.log bridge
+
+## Verification command
 ```
-
-### 2. **Validation obligatoire des extensions de téléchargement** ✓
-
-**Risque corrigé**: Téléchargements sans validation permettaient les fichiers exécutables (`.sh`, `.app`, `.scpt`)
-
-**Changement**:
-
-- Avant: Aucune validation, tous les fichiers acceptés
-- Après: Liste blanche d'extensions autorisées, rejet des autres
-
-**Extensions autorisées**: `pdf, txt, csv, jpg, jpeg, png, gif, doc, docx, xls, xlsx, json`
-
-**Code**:
-
-```swift
-let allowedExtensions = ["pdf", "txt", "csv", "jpg", "jpeg", "png", "gif", "doc", "docx", "xls", "xlsx", "json"]
-let fileExtension = URL(fileURLWithPath: suggestedFilename).pathExtension.lowercased()
-
-guard !fileExtension.isEmpty && allowedExtensions.contains(fileExtension) else {
-    print("[Security] Download rejected: unsupported file extension '\(fileExtension)' in file '\(suggestedFilename)'")
-    completionHandler(nil)
-    return
-}
+python3 security_tests.py
 ```
-
-### 3. **Pont console.log sécurisé** ✓
-
-**État**: Déjà sécurisé - activé uniquement en mode DEBUG
-
-**Code**:
-
-```swift
-#if DEBUG
-configuration.userContentController.add(consoleLogHandler, name: UserScripts.consoleLogHandler)
-#endif
-```
-
-## Protections existantes confirmées
-
-- ✓ App Sandbox activé
-- ✓ Hardened Runtime activé
-- ✓ User Script Sandboxing activé
-- ✓ Connexions réseau entrantes désactivées
-- ✓ Pas d'accès direct aux données sensibles (Keychain non utilisé)
-
-## Résultats des tests
-
-```
-=== Tests automatisés de sécurité ===
-Test: Permissions média
-   ✓ PASS: Validation d'hôte sécurisée
-
-Test: Validation des téléchargements
-   ✓ PASS: Validation d'extensions avec liste blanche et rejet des fichiers non-autorisés
-
-Test: Pont console.log
-   ✓ PASS: Pont console.log limité au DEBUG
-
-Résultats: 3/3 tests passés
-✓ Toutes les vérifications de sécurité sont passées
-```
-
-## Conclusion
-
-L'application Gemini Desktop est maintenant renforcée contre les vecteurs d'attaque suivants:
-
-- **Vol de credentials**: Impossible - les identifiants Google ne sont jamais stockés localement
-- **Accès aux permissions média**: Limité aux hôtes autorisés spécifiques
-- **Exécution de code via téléchargement**: Bloquée - extensions dangereuses rejetées
-- **Fuite de données sensibles**: Console.log désactivé en production
-
-Les scripts de test peuvent être exécutés à chaque commit pour valider la conformité de ces protections.

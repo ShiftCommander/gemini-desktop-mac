@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# Script Python pour tests automatisés de sécurité
+# Python script for automated security tests
 
 import os
 import re
@@ -11,99 +11,99 @@ import pathlib
 REPO_ROOT = pathlib.Path(__file__).resolve().parent
 
 def test_media_permissions():
-    """Test de validation des permissions média"""
-    print("Test: Permissions média")
+    """Test media permissions validation"""
+    print("Test: Media permissions")
     with open(REPO_ROOT / 'WebKit' / 'GeminiWebView.swift', 'r') as f:
         content = f.read()
 
-    # Chercher la validation exacte d'hôtes
+    # Search for exact host validation
     if 'allowedHosts = ["gemini.google.com", "accounts.google.com"]' in content:
-        print("   ✓ PASS: Validation d'hôte exacte implémentée")
+        print("   ✓ PASS: Exact host validation implemented")
         return True
     elif 'origin.host.contains(GeminiWebView.Constants.trustedHost)' in content:
         print(
-            "   ✗ FAIL: Utilise .contains() pour trustedHost, vulnérable aux sous-domaines")
+            "   ✗ FAIL: Uses .contains() for trustedHost, vulnerable to subdomains")
         return False
     else:
-        print("   ⚠ WARNING: Validation d'hôte non trouvée")
+        print("   ⚠ WARNING: Host validation not found")
         return False
 
 
 def test_download_validation():
-    """Test de validation des téléchargements"""
-    print("Test: Validation des téléchargements")
+    """Test download validation"""
+    print("Test: Download validation")
     with open(REPO_ROOT / 'WebKit' / 'GeminiWebView.swift', 'r') as f:
         content = f.read()
 
-    # Vérifier la validation des extensions
+    # Check extension validation
     if 'allowedExtensions = [' in content and 'completionHandler(nil)' in content:
-        print("   ✓ PASS: Validation d'extensions avec liste blanche et rejet des fichiers non-autorisés")
+        print("   ✓ PASS: Extension validation with allowlist and rejection of unauthorized files")
         return True
     else:
-        print("   ✗ FAIL: Aucune validation d'extensions pour les téléchargements")
+        print("   ✗ FAIL: No extension validation for downloads")
         return False
 
 
 def test_quarantine_attribute():
-    """Test du quarantine attribute sur les téléchargements"""
-    print("Test: Quarantine attribute sur les téléchargements")
+    """Test quarantine attribute on downloads"""
+    print("Test: Quarantine attribute on downloads")
     with open(REPO_ROOT / 'WebKit' / 'GeminiWebView.swift', 'r') as f:
         content = f.read()
 
     if 'com.apple.quarantine' in content and 'downloadDidFinish' in content:
-        print("   ✓ PASS: Quarantine attribute défini sur les fichiers téléchargés")
+        print("   ✓ PASS: Quarantine attribute set on downloaded files")
         return True
     else:
-        print("   ✗ FAIL: Quarantine attribute non configuré")
+        print("   ✗ FAIL: Quarantine attribute not configured")
         return False
 
 
 def test_https_enforcement():
-    """Test de l'application de HTTPS"""
-    print("Test: Application de HTTPS")
+    """Test HTTPS enforcement"""
+    print("Test: HTTPS enforcement")
     with open(REPO_ROOT / 'WebKit' / 'WebViewModel.swift', 'r') as f:
         content = f.read()
 
     if 'allowsInsecureMediaLoad = false' in content and 'allowsInsecureScripting = false' in content:
-        print("   ✓ PASS: HTTPS enforced - contenu non-HTTPS désactivé")
+        print("   ✓ PASS: HTTPS enforced - non-HTTPS content disabled")
         return True
     else:
-        print("   ✗ FAIL: HTTPS enforcement non configuré")
+        print("   ✗ FAIL: HTTPS enforcement not configured")
         return False
 
 
 def test_domain_whitelist():
-    """Test de la liste blanche de domaines"""
-    print("Test: Liste blanche restrictive de domaines")
+    """Test domain whitelist"""
+    print("Test: Restrictive domain whitelist")
     with open(REPO_ROOT / 'WebKit' / 'GeminiWebView.swift', 'r') as f:
         content = f.read()
 
-    # Chercher la liste exhaustive de domaines au lieu de suffixes
+    # Search for exhaustive domain list instead of suffixes
     if 'allowedDomains = [' in content and '.contains(host)' in content:
         if '.googleapis.com' not in content or 'gemini.google.com' in content:
-            print("   ✓ PASS: Domaines spécifiés de manière exhaustive")
+            print("   ✓ PASS: Domains specified exhaustively")
             return True
 
-    print("   ✗ FAIL: Utilise toujours des suffixes génériques dangereux")
+    print("   ✗ FAIL: Still uses dangerous generic suffixes")
     return False
 
 
 def test_console_log_bridge():
-    """Test du pont console.log"""
-    print("Test: Pont console.log")
+    """Test console.log bridge"""
+    print("Test: console.log bridge")
     with open('/workspaces/gemini-desktop-mac/WebKit/WebViewModel.swift', 'r') as f:
         content = f.read()
 
     if '#if DEBUG' in content:
-        print("   ✓ PASS: Pont console.log limité au DEBUG")
+        print("   ✓ PASS: console.log bridge limited to DEBUG")
         return True
     else:
-        print("   ✗ FAIL: Pont console.log actif en production")
+        print("   ✗ FAIL: console.log bridge active in production")
         return False
 
 
 def main():
-    print("=== Tests automatisés de sécurité - Gemini Desktop ===\n")
+    print("=== Automated Security Tests - Gemini Desktop ===\n")
 
     results = []
     results.append(test_media_permissions())
@@ -116,13 +116,13 @@ def main():
     passed = sum(results)
     total = len(results)
     print(f"\n{'='*50}")
-    print(f"Résultats: {passed}/{total} tests passés")
+    print(f"Results: {passed}/{total} tests passed")
 
     if passed == total:
-        print("✓ Toutes les vérifications de sécurité sont passées")
+        print("✓ All security checks passed")
         return 0
     else:
-        print("✗ Certaines vérifications ont échoué")
+        print("✗ Some checks failed")
         return 1
 
 

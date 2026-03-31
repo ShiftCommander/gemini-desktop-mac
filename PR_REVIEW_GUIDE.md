@@ -1,19 +1,19 @@
-## PR Review Checklist pour Security Fixes
+## PR Review Checklist for Security Fixes
 
-### Ce qui est inclus dans cette PR ✓
+### What's included in this PR ✓
 
-- [x] Validation exacte des hôtes pour les permissions média (critique)
-- [x] Liste blanche d'extensions pour les téléchargements (critique)
-- [x] Tests automatisés validant les corrections
-- [x] Documentation des changements
+- [x] Exact host validation for media permissions (critical)
+- [x] Allowlist of extensions for downloads (critical)
+- [x] Automated tests validating the fixes
+- [x] Documentation of changes
 
-### Ce qui manque pour rendre cette PR complète :
+### What's missing to make this PR complete:
 
-#### 1. **Quarantine bit sur les téléchargements** (haute priorité)
+#### 1. **Quarantine bit on downloads** (high priority)
 
-Les fichiers téléchargés devraient être marqués avec l'attribut `com.apple.quarantine` pour que macOS pose une question avant l'ouverture.
+Downloaded files should be marked with the `com.apple.quarantine` attribute so macOS prompts before opening.
 
-**Fichier à modifier**: `WebKit/GeminiWebView.swift` dans `downloadDidFinish()`
+**File to modify**: `WebKit/GeminiWebView.swift` in `downloadDidFinish()`
 
 ```swift
 func downloadDidFinish(_ download: WKDownload) {
@@ -41,14 +41,14 @@ func downloadDidFinish(_ download: WKDownload) {
 }
 ```
 
-#### 2. **HTTPS enforcement + CSP validation** (haute priorité)
+#### 2. **HTTPS enforcement + CSP validation** (high priority)
 
-Ajouter une validation explicite que seul HTTPS est autorisé
+Add explicit validation that only HTTPS is allowed
 
-**Fichier à modifier**: `WebKit/WebViewModel.swift` dans `createWebView()`
+**File to modify**: `WebKit/WebViewModel.swift` in `createWebView()`
 
 ```swift
-// Désactiver les contenus non-HTTPS
+// Disable insecure content
 let prefs = WKWebpagePreferences()
 prefs.allowsContentJavaScript = true
 prefs.allowsInsecureMediaLoad = false  // Force HTTPS for media
@@ -56,44 +56,148 @@ prefs.allowsInsecureScripting = false  // Force HTTPS for scripts
 configuration.defaultWebpagePreferences = prefs
 ```
 
-#### 3. **Améliorer la validation de navigation** (priorité moyenne)
+#### 3. **Improve navigation validation** (medium priority)
 
-Remplacer la vérification de suffixe `.gstatic.com` par une liste exhaustive
+Replace suffix matching with exhaustive list
 
-**Fichier à modifier**: `WebKit/GeminiWebView.swift`
+**File to modify**: `WebKit/GeminiWebView.swift`
 
 ```swift
-// Actuellement: let internalSuffixes = [".googleapis.com", ".gstatic.com"]
-// Devrait être: let internalHosts = [
+// Currently: let internalSuffixes = [".googleapis.com", ".gstatic.com"]
+// Should be: let internalHosts = [
 //    "accounts.google.com",
 //    "gemini.google.com",
 //    "auth.google.com"
 // ]
 ```
 
-#### 4. **Tests supplémentaires recommandés**
+#### 4. **Recommended additional tests**
 
-Ajouter à `security_tests.py`:
+Add to `security_tests.py`:
 
-- Test HTTPS enforcement
-- Test quarantine attribute
-- Test rejet des URL dangeriques
+- HTTPS enforcement test
+- Quarantine attribute test
+- Test for rejecting dangerous URLs
 
 ---
 
-## Recommandation pour cette PR
+## Recommendation for this PR
 
-**État actuel**: ✅ **Partiellement prête** pour merge
+**Current status**: ✅ **Partially ready** for merge
 
-### Scénario 1: Merge maintenant
+### Scenario 1: Merge now
 
-- **Pros**: Corrige 2 failles critiques immédiatement
-- **Cons**: Laisse des points de sécurité ouvertes
-- **Recommandé si**: Vous voulez des PR plus petites et focalisées
+- **Pros**: Fixes 2 critical vulnerabilities immediately
+- **Cons**: Leaves some security gaps open
+- **Recommended if**: You want smaller, focused PRs
 
-### Scénario 2: Améliorer avant merge (recommandé)
+### Scenario 2: Improve before merge (recommended)
 
-Ajouter au minimum:
+Add at minimum:
+
+1. Quarantine bit (5 min)
+2. HTTPS enforcement (10 min)
+
+This would make a **complete and secure PR** covering all critical attack vectors.
+
+---
+
+## PR Description Template
+
+```markdown
+## Security: Fix critical media permissions and download validation vulnerabilities
+
+### Summary
+
+Fixes 2 critical security vulnerabilities that could allow credential theft or malware execution:
+
+1. Media permissions using unsafe hostname matching (substring instead of exact)
+2. File downloads without validation allowing executable files
+
+### Changes
+
+- **GeminiWebView.swift**:
+  - Fixed media permissions to use exact hostname matching (gemini.google.com, accounts.google.com)
+  - Added mandatory file extension validation with allowlist
+  - Added security logging for rejected downloads
+
+- **security_tests.py**: Added automated tests validating fixes
+
+### Security Impact
+
+- ❌ Threat mitigated: Attacker registering `evil.google.com` gaining camera/mic access
+- ❌ Threat mitigated: Trojan delivery via unrestricted file downloads
+- ✅ No regression: Changes are backward compatible
+
+### Testing
+
+Run: `python3 security_tests.py`
+All 3 security tests pass ✓
+
+### Related
+
+Closes: (if you have an issue)
+Addresses audit findings: GeminiWebView.swift:120, :55-75
+
+### Follow-up PRs
+
+- Add quarantine attribute to downloads
+- Add HTTPS enforcement + CSP validation
+- Replace domain suffix matching with exact allowlist
+```
+
+Would you like me to:
+
+1. **Add the additional fixes** (quarantine + HTTPS) for a complete PR?
+2. **Create the PR as is** with this template?
+3. **Add more tests**?
+
+// Disable insecure content
+let prefs = WKWebpagePreferences()
+prefs.allowsContentJavaScript = true
+prefs.allowsInsecureMediaLoad = false  // Force HTTPS for media
+prefs.allowsInsecureScripting = false  // Force HTTPS for scripts
+configuration.defaultWebpagePreferences = prefs
+```
+
+#### 3. **Improve navigation validation** (medium priority)
+
+Replace suffix matching with exhaustive list
+
+**File to modify**: `WebKit/GeminiWebView.swift`
+
+```swift
+// Currently: let internalSuffixes = [".googleapis.com", ".gstatic.com"]
+// Should be: let internalHosts = [
+//    "accounts.google.com",
+//    "gemini.google.com",
+//    "auth.google.com"
+// ]
+```
+
+#### 4. **Recommended additional tests**
+
+Add to `security_tests.py`:
+
+- HTTPS enforcement test
+- Quarantine attribute test
+- Test for rejecting dangerous URLs
+
+---
+
+## Recommendation for this PR
+
+**Current status**: ✅ **Partially ready** for merge
+
+### Scenario 1: Merge now
+
+- **Pros**: Fixes 2 critical vulnerabilities immediately
+- **Cons**: Leaves some security gaps open
+- **Recommended if**: You want smaller, focused PRs
+
+### Scenario 2: Improve before merge (recommended)
+
+Add at minimum:
 
 1. Quarantine bit (5 min)
 2. HTTPS enforcement (10 min)
