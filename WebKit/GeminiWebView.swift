@@ -7,6 +7,7 @@
 
 import SwiftUI
 import WebKit
+import Darwin
 
 struct GeminiWebView: NSViewRepresentable {
     let webView: WKWebView
@@ -96,15 +97,19 @@ struct GeminiWebView: NSViewRepresentable {
                 let timestamp = UInt32(Date().timeIntervalSince1970)
                 let quarantineValue = "0001;\(timestamp);Gemini Desktop;com.alexcding.geminidesktop"
                 updatedAttributes[FileAttributeKey.protectionKey] = URLFileProtection.complete
-                
+
                 try FileManager.default.setAttributes(updatedAttributes, ofItemAtPath: destination.path)
-                
-                // Set extended attribute for quarantine
+
+                // Set extended attribute for quarantine using system API
                 let quarantineAttr = "com.apple.quarantine"
-                if #available(macOS 10.13, *) {
-                    try FileManager.default.setExtendedAttribute(quarantineValue, 
-                                                                  forKey: quarantineAttr, 
-                                                                  at: destination)
+                let data = quarantineValue.data(using: .utf8)!
+                let result = data.withUnsafeBytes { (bytes: UnsafeRawBufferPointer) -> Int32 in
+                    guard let ptr = bytes.baseAddress else { return -1 }
+                    return setxattr(destination.path, quarantineAttr, ptr, data.count, 0, 0)
+                }
+                if result != 0 {
+                    let errnoValue = errno
+                    print("[Security] Warning: setxattr failed (\(errnoValue)) setting quarantine on \(destination.path)")
                 }
             } catch {
                 print("[Security] Warning: Could not set quarantine attribute on download: \(error)")
