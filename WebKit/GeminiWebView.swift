@@ -53,6 +53,17 @@ struct GeminiWebView: NSViewRepresentable {
         }
 
         func download(_ download: WKDownload, decideDestinationUsing response: URLResponse, suggestedFilename: String, completionHandler: @escaping (URL?) -> Void) {
+            // Security: Validate file extension before allowing download
+            let allowedExtensions = ["pdf", "txt", "csv", "jpg", "jpeg", "png", "gif", "doc", "docx", "xls", "xlsx", "json"]
+            let fileExtension = URL(fileURLWithPath: suggestedFilename).pathExtension.lowercased()
+            
+            // Reject downloads with dangerous or unrecognized extensions
+            guard !fileExtension.isEmpty && allowedExtensions.contains(fileExtension) else {
+                print("[Security] Download rejected: unsupported file extension '\(fileExtension)' in file '\(suggestedFilename)'")
+                completionHandler(nil)
+                return
+            }
+            
             let downloadsURL = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first!
             var destination = downloadsURL.appendingPathComponent(suggestedFilename)
 
@@ -60,7 +71,6 @@ struct GeminiWebView: NSViewRepresentable {
             var counter = 1
             let fileManager = FileManager.default
             let nameWithoutExtension = destination.deletingPathExtension().lastPathComponent
-            let fileExtension = destination.pathExtension
 
             while fileManager.fileExists(atPath: destination.path) {
                 let newName = fileExtension.isEmpty
@@ -76,6 +86,31 @@ struct GeminiWebView: NSViewRepresentable {
 
         func downloadDidFinish(_ download: WKDownload) {
             guard let destination = downloadDestination else { return }
+            
+            // Security: Set quarantine attribute for downloaded files
+            // This makes macOS display a "downloaded from internet" warning dialog before opening
+            do {
+                let attributes = try FileManager.default.attributesOfItem(atPath: destination.path)
+                var updatedAttributes = attributes
+                // The quarantine attribute: 0001;timestamp;appname;appid
+                let timestamp = UInt32(Date().timeIntervalSince1970)
+                let quarantineValue = "0001;\(timestamp);Gemini Desktop;com.alexcding.geminidesktop"
+                updatedAttributes[FileAttributeKey.protectionKey] = URLFileProtection.complete
+                
+                try FileManager.default.setAttributes(updatedAttributes, ofItemAtPath: destination.path)
+                
+                // Set extended attribute for quarantine
+                let quarantineAttr = "com.apple.quarantine"
+                if #available(macOS 10.13, *) {
+                    try FileManager.default.setExtendedAttribute(quarantineValue, 
+                                                                  forKey: quarantineAttr, 
+                                                                  at: destination)
+                }
+            } catch {
+                print("[Security] Warning: Could not set quarantine attribute on download: \(error)")
+                // Continue anyway - this is a warning, not a fatal error
+            }
+            
             NSWorkspace.shared.activateFileViewerSelecting([destination])
         }
 
@@ -117,7 +152,10 @@ struct GeminiWebView: NSViewRepresentable {
         }
 
         func webView(_ webView: WKWebView, requestMediaCapturePermissionFor origin: WKSecurityOrigin, initiatedByFrame frame: WKFrameInfo, type: WKMediaCaptureType, decisionHandler: @escaping (WKPermissionDecision) -> Void) {
-            decisionHandler(origin.host.contains(GeminiWebView.Constants.trustedHost) ? .grant : .prompt)
+            // Only grant media permissions for specific Google services
+            let allowedHosts = ["gemini.google.com", "accounts.google.com"]
+            let isAllowed = allowedHosts.contains(origin.host ?? "")
+            decisionHandler(isAllowed ? .grant : .prompt)
         }
 
         func webView(_ webView: WKWebView, runOpenPanelWith parameters: WKOpenPanelParameters, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping ([URL]?) -> Void) {
@@ -135,15 +173,29 @@ struct GeminiWebView: NSViewRepresentable {
 
         private func isExternalURL(_ url: URL) -> Bool {
             guard let host = url.host?.lowercased() else { return false }
-            // Only Gemini-related domains stay in the app
-            let internalHosts = ["gemini.google.com", "accounts.google.com"]
-            let internalSuffixes = [".googleapis.com", ".gstatic.com"]
-
-            if internalHosts.contains(host) { return false }
-            for suffix in internalSuffixes {
-                if host.hasSuffix(suffix) { return false }
+            
+            // Security: Only specific Google domains required for Gemini to function
+            // Using exact matches instead of suffix matching to prevent overly permissive access
+            let allowedDomains = [
+                // Core Gemini service
+                "gemini.google.com",
+                "www.gemini.google.com",
+                // Authentication
+                "accounts.google.com",
+                "auth.google.com",
+                // Essential Google APIs and static resources
+                "fonts.googleapis.com",  // Fonts for UI
+                "fonts.gstatic.com",     // Font files
+                // Common Google domains that Gemini may use
+                "google.com",
+                "www.google.com"
+            ]
+            
+            if allowedDomains.contains(host) {
+                return false  // Internal domain, keep in app
             }
-            return true
+            
+            return true  // External domain, open in browser
         }
     }
 }
