@@ -133,6 +133,10 @@ class WebViewModel {
         configuration.websiteDataStore = .default()
         configuration.defaultWebpagePreferences.allowsContentJavaScript = true
         configuration.mediaTypesRequiringUserActionForPlayback = []
+        
+        // Security: Enforce HTTPS and disable insecure content
+        configuration.defaultWebpagePreferences.allowsInsecureMediaLoad = false
+        configuration.defaultWebpagePreferences.allowsInsecureScripting = false
 
         // Add user scripts
         for script in UserScripts.createAllScripts() {
